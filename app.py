@@ -1,13 +1,12 @@
 import streamlit as st
 from PIL import Image
-# OJO: YA NO IMPORTAMOS REMBG AQUÍ ARRIBA PARA QUE NO SE CUELGUE AL INICIO
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURACIÓN DE LA PÁGINA ---
 st.set_page_config(page_title="Mod Lab NH35", layout="wide")
 
-st.title("🛠️ Laboratorio de Mods NH35 - Fase 2")
+st.title("🛠️ Laboratorio de Mods NH35 - Versión Ligera")
 
-# --- BARRA LATERAL ---
+# --- BARRA LATERAL (CONTROLES) ---
 with st.sidebar:
     st.header("1. La Caja")
     estilo = st.selectbox("Estilo", ["Submariner (Diver)", "Datejust (Dress)"])
@@ -21,14 +20,17 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.subheader("🎛️ Mesa de Trabajo")
     if archivo_dial is not None:
-        rotacion = st.slider("Rotar", -180, 180, 0)
+        # Controles manuales
+        rotacion = st.slider("Rotar (Grados)", -180, 180, 0)
         tamano_percent = st.slider("Tamaño (%)", 10, 150, 100)
         
+        st.markdown("---")
         # Checkbox para activar la IA
-        usar_ia = st.checkbox("🪄 Usar IA (Puede tardar)", value=False) # Empezamos en False para no bloquear
+        st.write("🧠 **Inteligencia Artificial**")
+        usar_ia = st.checkbox("Quitar fondo (Modo Ahorro)", value=False)
         
     else:
-        st.info("👈 Sube una imagen")
+        st.info("👈 Sube una imagen primero")
 
 with col2:
     st.subheader("👁️ Visualización")
@@ -37,22 +39,33 @@ with col2:
         imagen_original = Image.open(archivo_dial)
         imagen_procesada = imagen_original
 
-        # --- AQUÍ ESTÁ EL TRUCO (LAZY IMPORT) ---
+        # --- LÓGICA DE IA (MODO LIGERO) ---
         if usar_ia:
-            with st.spinner('Despertando a la IA... (Esto tarda la primera vez)'):
+            with st.spinner('Procesando con modelo ligero (u2netp)...'):
                 try:
-                    # IMPORTAMOS SOLO CUANDO HACE FALTA
-                    from rembg import remove 
-                    imagen_procesada = remove(imagen_original)
+                    # Importamos AQUÍ DENTRO para que la app no cargue lento al inicio
+                    from rembg import remove, new_session
+                    
+                    # Usamos el modelo "u2netp" (Pocket) que gasta menos RAM
+                    session = new_session("u2netp")
+                    imagen_procesada = remove(imagen_original, session=session)
+                    
                 except Exception as e:
                     st.error(f"Error de memoria: {e}")
-                    st.warning("El servidor gratuito se quedó sin fuerza. Intenta sin la IA.")
+                    st.warning("El servidor gratuito está saturado. Intenta recargar la página (F5).")
 
-        # Rotación y Tamaño
+        # --- TRANSFORMACIONES (Rotar y Escalar) ---
+        # 1. Rotar
         imagen_rotada = imagen_procesada.rotate(rotacion * -1, expand=True)
+        
+        # 2. Redimensionar
         w, h = imagen_rotada.size
         nuevo_w = int(w * (tamano_percent / 100))
         nuevo_h = int(h * (tamano_percent / 100))
         imagen_final = imagen_rotada.resize((nuevo_w, nuevo_h))
         
-        st.image(imagen_final)
+        # 3. Mostrar Resultado
+        st.image(imagen_final, caption="Resultado Final")
+        
+    else:
+        st.write("Aquí verás tu diseño.")
