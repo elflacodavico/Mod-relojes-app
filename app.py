@@ -1,60 +1,72 @@
 import streamlit as st
 from PIL import Image
+from rembg import remove # Importamos la IA quita-fondos
 
-# --- CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="Mod Relojes IA", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Mod Lab NH35", layout="wide")
 
-st.title("🛠️ Laboratorio de Mods NH35")
-st.write("Sube tus piezas, verifica compatibilidad y visualiza tu mod.")
+st.title("🛠️ Laboratorio de Mods NH35 - Fase 2")
 
-# --- BARRA LATERAL (Tus controles) ---
+# --- BARRA LATERAL (CONTROLES) ---
 with st.sidebar:
-    st.header("1. Elige tu Base (Caja)")
+    st.header("1. La Caja (Chassis)")
+    estilo = st.selectbox("Estilo", ["Submariner (Diver)", "Datejust (Dress)"])
+    if estilo == "Datejust (Dress)":
+        st.image("https://raw.githubusercontent.com/elflacodavico/mod-relojes-app/main/assets/caja_dj_ejemplo.png", caption="Referencia Visual", width=150)
+        # Nota: Arriba puse un link roto a propósito, luego te enseño a poner fotos base reales
     
-    # Selector de Estilo
-    estilo = st.selectbox("Estilo de Caja", ["Submariner (Diver)", "Datejust (Dress)", "Pilot"])
-    
-    # Lógica de Tamaños (Condicionales)
-    if estilo == "Submariner (Diver)":
-        tamano = st.selectbox("Diámetro", ["40mm", "41mm"])
-        corona = st.radio("Posición Corona", ["3.0", "3.8 (Seiko SKX)"])
-    elif estilo == "Datejust (Dress)":
-        tamano = st.selectbox("Diámetro", ["36mm", "39mm", "41mm"])
-        corona = "3.0" # Fijo
-        st.info("ℹ️ Los tipo Rolex siempre llevan corona a las 3.")
-    else:
-        tamano = "42mm"
-        corona = "3.0"
+    st.header("2. El Dial (Tu pieza)")
+    archivo_dial = st.file_uploader("Sube tu Dial", type=["png", "jpg", "jpeg"])
 
-    st.header("2. El Dial (Esfera)")
-    # AQUÍ ESTÁ LO QUE QUERÍAS: SUBIR FOTO
-    archivo_dial = st.file_uploader("Sube una foto o captura del Dial (AliExpress)", type=["png", "jpg", "jpeg"])
-
-# --- ÁREA PRINCIPAL (Visualización) ---
-col1, col2 = st.columns(2)
+# --- ZONA DE TRABAJO ---
+col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.subheader("📋 Especificaciones Técnicas")
-    st.markdown(f"""
-    * **Movimiento Base:** Seiko NH35 (Automático)
-    * **Caja Seleccionada:** {estilo} - {tamano}
-    * **Posición Corona:** {corona}
-    * **Diámetro Dial Requerido:** 28.5mm
-    """)
-    
-    # Lógica de Compatibilidad (El "Cerebro")
-    if corona == "3.8 (Seiko SKX)":
-        st.warning("⚠️ **ATENCIÓN:** Has elegido una caja con corona a las 4. Asegúrate que tu dial tenga 4 patas o tendrás que cortarlas.")
+    st.subheader("🎛️ Mesa de Trabajo")
+    if archivo_dial is not None:
+        st.info("Ajusta la imagen para que encaje")
+        
+        # CONTROLES MANUALES
+        rotacion = st.slider("Rotar Dial (Grados)", -180, 180, 0)
+        tamano_percent = st.slider("Redimensionar (%)", 10, 200, 100)
+        
+        # BOTÓN DE IA
+        usar_ia = st.checkbox("🪄 Usar IA para borrar fondo", value=True)
+        
     else:
-        st.success("✅ Configuración estándar (Corona a las 3). La mayoría de diales funcionarán.")
+        st.warning("👈 Sube una imagen primero")
 
 with col2:
-    st.subheader("🖼️ Visualización Previa")
+    st.subheader("👁️ Visualización Final")
     
+    # LIENZO (CANVAS)
     if archivo_dial is not None:
-        # Si el usuario subió foto, la mostramos
-        imagen = Image.open(archivo_dial)
-        st.image(imagen, caption="Tu posible Dial", width=300)
-        st.success("¡Imagen cargada! (En el futuro aquí superpondremos la caja)")
-    else:
-        st.info("👈 Sube una imagen en el menú de la izquierda para verla aquí.")
+        # 1. Abrir imagen original
+        imagen_original = Image.open(archivo_dial)
+        
+        # 2. PROCESAMIENTO
+        # A. Borrar fondo (Si el checkbox está activo)
+        if usar_ia:
+            with st.spinner('La IA está limpiando el fondo...'):
+                try:
+                    imagen_procesada = remove(imagen_original)
+                except Exception as e:
+                    st.error(f"Error en IA: {e}")
+                    imagen_procesada = imagen_original
+        else:
+            imagen_procesada = imagen_original
+
+        # B. Rotación
+        imagen_rotada = imagen_procesada.rotate(rotacion * -1, expand=True) # * -1 para que gire intuitivamente
+        
+        # C. Redimensión
+        width, height = imagen_rotada.size
+        nuevo_w = int(width * (tamano_percent / 100))
+        nuevo_h = int(height * (tamano_percent / 100))
+        imagen_final = imagen_rotada.resize((nuevo_w, nuevo_h))
+        
+        # MOSTRAR RESULTADO
+        st.image(imagen_final, caption="Dial Procesado y Limpio")
+        
+        st.markdown("---")
+        st.success(f"✅ Dial listo para montaje virtual. Orientación: {rotacion}°")
