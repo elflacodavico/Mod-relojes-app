@@ -1,21 +1,18 @@
 import streamlit as st
 from PIL import Image
-from rembg import remove # Importamos la IA quita-fondos
+# OJO: YA NO IMPORTAMOS REMBG AQUÍ ARRIBA PARA QUE NO SE CUELGUE AL INICIO
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Mod Lab NH35", layout="wide")
 
 st.title("🛠️ Laboratorio de Mods NH35 - Fase 2")
 
-# --- BARRA LATERAL (CONTROLES) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("1. La Caja (Chassis)")
+    st.header("1. La Caja")
     estilo = st.selectbox("Estilo", ["Submariner (Diver)", "Datejust (Dress)"])
-    if estilo == "Datejust (Dress)":
-        st.image("https://raw.githubusercontent.com/elflacodavico/mod-relojes-app/main/assets/caja_dj_ejemplo.png", caption="Referencia Visual", width=150)
-        # Nota: Arriba puse un link roto a propósito, luego te enseño a poner fotos base reales
     
-    st.header("2. El Dial (Tu pieza)")
+    st.header("2. El Dial")
     archivo_dial = st.file_uploader("Sube tu Dial", type=["png", "jpg", "jpeg"])
 
 # --- ZONA DE TRABAJO ---
@@ -24,49 +21,38 @@ col1, col2 = st.columns([1, 2])
 with col1:
     st.subheader("🎛️ Mesa de Trabajo")
     if archivo_dial is not None:
-        st.info("Ajusta la imagen para que encaje")
+        rotacion = st.slider("Rotar", -180, 180, 0)
+        tamano_percent = st.slider("Tamaño (%)", 10, 150, 100)
         
-        # CONTROLES MANUALES
-        rotacion = st.slider("Rotar Dial (Grados)", -180, 180, 0)
-        tamano_percent = st.slider("Redimensionar (%)", 10, 200, 100)
-        
-        # BOTÓN DE IA
-        usar_ia = st.checkbox("🪄 Usar IA para borrar fondo", value=True)
+        # Checkbox para activar la IA
+        usar_ia = st.checkbox("🪄 Usar IA (Puede tardar)", value=False) # Empezamos en False para no bloquear
         
     else:
-        st.warning("👈 Sube una imagen primero")
+        st.info("👈 Sube una imagen")
 
 with col2:
-    st.subheader("👁️ Visualización Final")
+    st.subheader("👁️ Visualización")
     
-    # LIENZO (CANVAS)
     if archivo_dial is not None:
-        # 1. Abrir imagen original
         imagen_original = Image.open(archivo_dial)
-        
-        # 2. PROCESAMIENTO
-        # A. Borrar fondo (Si el checkbox está activo)
+        imagen_procesada = imagen_original
+
+        # --- AQUÍ ESTÁ EL TRUCO (LAZY IMPORT) ---
         if usar_ia:
-            with st.spinner('La IA está limpiando el fondo...'):
+            with st.spinner('Despertando a la IA... (Esto tarda la primera vez)'):
                 try:
+                    # IMPORTAMOS SOLO CUANDO HACE FALTA
+                    from rembg import remove 
                     imagen_procesada = remove(imagen_original)
                 except Exception as e:
-                    st.error(f"Error en IA: {e}")
-                    imagen_procesada = imagen_original
-        else:
-            imagen_procesada = imagen_original
+                    st.error(f"Error de memoria: {e}")
+                    st.warning("El servidor gratuito se quedó sin fuerza. Intenta sin la IA.")
 
-        # B. Rotación
-        imagen_rotada = imagen_procesada.rotate(rotacion * -1, expand=True) # * -1 para que gire intuitivamente
-        
-        # C. Redimensión
-        width, height = imagen_rotada.size
-        nuevo_w = int(width * (tamano_percent / 100))
-        nuevo_h = int(height * (tamano_percent / 100))
+        # Rotación y Tamaño
+        imagen_rotada = imagen_procesada.rotate(rotacion * -1, expand=True)
+        w, h = imagen_rotada.size
+        nuevo_w = int(w * (tamano_percent / 100))
+        nuevo_h = int(h * (tamano_percent / 100))
         imagen_final = imagen_rotada.resize((nuevo_w, nuevo_h))
         
-        # MOSTRAR RESULTADO
-        st.image(imagen_final, caption="Dial Procesado y Limpio")
-        
-        st.markdown("---")
-        st.success(f"✅ Dial listo para montaje virtual. Orientación: {rotacion}°")
+        st.image(imagen_final)
